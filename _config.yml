@@ -1,8 +1,0 @@
-title: Clblog.GitHub.com
-description: github pages
-google_analytics: 
-show_downloads: true
-theme: jekyll-theme-cayman
-encoding: utf-8
-gems:
-  - jekyll-mentions
