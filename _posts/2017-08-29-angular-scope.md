@@ -11,6 +11,7 @@ excerpt: angularJS的作用域的学习
 
 ## $socpe和作用域(scope)
 1、AngularJS中的$scope对象是模板的域模型，也称为作用域实例。通过对其属性赋值，可以传递数据到模板（页面）进行渲染。
+
 2、作用域(scope)可以加入域模板相关的数据和提供相关的功能。
 
 html
@@ -48,7 +49,9 @@ html
 
 ## ng-controller
 1、每个$scope都是scope的实例。scope拥有很多方法，用于控制作用域的生命周期、提供事件传播(event-propagation)功能，以及支持模板的渲染等。
+
 2、ng-controller指令会调用scope对象的$new()方法创建新的作用域实例($scope)。例如上个例子中的代码。
+
 3、新创建的作用域实例$scope会拥有$parent属性，并指向他的父作用域
 
 ## ng-repeat
