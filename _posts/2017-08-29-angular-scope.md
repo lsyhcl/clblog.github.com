@@ -45,6 +45,7 @@ html
         moA.controller("")
     </script>
     </html>
+
 ## ng-controller
 1、每个$scope都是scope的实例。scope拥有很多方法，用于控制作用域的生命周期、提供事件传播(event-propagation)功能，以及支持模板的渲染等。
 2、ng-controller指令会调用scope对象的$new()方法创建新的作用域实例($scope)。例如上个例子中的代码。
