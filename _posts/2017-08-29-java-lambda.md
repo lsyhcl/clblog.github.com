@@ -49,7 +49,7 @@ System.out.println(list.stream().collect(Collectors.toMap(a -> a + " key", a -> 
 
 
 
-##转化为Set
+## 转化为Set
 
 ```java
 System.out.println(list.stream().collect(Collectors.toSet()));
