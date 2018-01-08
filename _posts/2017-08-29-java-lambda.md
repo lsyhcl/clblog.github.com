@@ -59,7 +59,7 @@ System.out.println(list.stream().collect(Collectors.toSet()));
 
 ## 计数
 
-###count()
+### count()
 
 ```
 list.stream().count();
@@ -145,7 +145,7 @@ personList.add(new Person("wangwu", 22));
 personList.add(new Person("wangwu", 22));
 ```
 
-###filter()
+### filter()
 
 ```java
 System.out.println(personList.stream().filter(p -> p.getName().equals("zhangsan")).collect(Collectors.toList()));
@@ -153,7 +153,7 @@ System.out.println(personList.stream().filter(p -> p.getName().equals("zhangsan"
 
 ## 去重
 
-###distinct()
+### distinct()
 
 ```java
 System.out.println(personList.stream().distinct().collect(Collectors.toList()));
@@ -161,7 +161,7 @@ System.out.println(personList.stream().distinct().collect(Collectors.toList()));
 
 ## 截取
 
-###limit()
+### limit()
 
 ```java
 // 截取前几个
@@ -170,7 +170,7 @@ System.out.println(personList.stream().limit(2).collect(Collectors.toList()));
 
 ## 跳过
 
-###skip()
+### skip()
 
 ```java
 // 跳过几个
@@ -181,7 +181,7 @@ System.out.println(personList.stream().skip(2).collect(Collectors.toList()));
 
 ## 映射
 
-###map()
+### map()
 
 ```java
 // 映射
@@ -199,14 +199,14 @@ System.out.println(personList.stream().collect(Collectors.mapping(p ->p, Collect
 
 ## 平面映射（汇集）
 
-###flatMap()
+### flatMap()
 
 ```java
 // 汇流成河。 stream里的对象（personList, personList1）本身就是可以提取stream的，提取出来汇集成更大的stream
 System.out.println(Stream.of(personList, personList1).flatMap(a -> a.stream()).collect(Collectors.toList()));
 ```
 
-##最大最小
+## 最大最小
 
 ### max()和min()
 
@@ -219,7 +219,7 @@ System.out.println(personList.stream().max((p, p1) -> p.getAge() - p1.getAge()).
 
 ## 排序
 
-###sort()
+### sort()
 
 ```java
 // 排序
@@ -252,7 +252,7 @@ personList.stream().forEach(person -> {
 });
 ```
 
-##规约
+## 规约
 
 ### reduce()
 
@@ -287,7 +287,7 @@ new MyInterface(){
 
 
 
-###方法引用
+### 方法引用
 
 方法引用让你可以重复使用现有的方法定义，并像Lambda一样传递它们。在一些情况下，比起使用Lambda表达式，它们更易读，感觉也更自然
 
@@ -297,7 +297,6 @@ new MyInterface(){
 | (str,i) -> str.substring(i)              | String::substring                 |
 | (String s) -> System.out.println(s)      | System.out::println               |
 | (Apple a)->a.getWeight()                 | Apple::getWeight                  |
-
 
 
 
