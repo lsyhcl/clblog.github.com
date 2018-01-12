@@ -477,3 +477,10 @@ public class Handler implements Runnable
 
 ```
 
+## 参考
+
+[BIO与NIO、AIO的区别(这个容易理解)](http://blog.csdn.net/skiof007/article/details/52873421)
+
+[Reactor（反应器）模式初探](http://blog.csdn.net/pistolove/article/details/53152708)
+
+[网络编程基础(5) : IO多路复用(多Reactor)(主从式Reactor)](http://blog.csdn.net/yehjordan/article/details/51026045)
