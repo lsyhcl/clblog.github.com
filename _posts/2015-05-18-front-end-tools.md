@@ -9,102 +9,471 @@ excerpt: 记录一些好用的前端工具和框架。
 * content
 {:toc}
 
-这里记录一些我用到的或者见到的比较好用方便的前端开发相关的工具吧。
 
----
+### 3. 主从模式Reactor
 
-## 色彩与图标
+#### MainReactor
 
-### CSS滤镜
+```java
+package com.tr.reactor.mainsub;
 
-* [Filter Effects](http://www.cssreflex.com/css-generators/filter)
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.nio.channels.ServerSocketChannel;
+import java.util.Iterator;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-界面：
-
-![Filter Effects](http://7q5cdt.com1.z0.glb.clouddn.com/blog-filter.png)
-
-有各种各样的滤镜效果，可以直接调节参数观察变化。
-
-值得一提的是，这个网站还有很多其他 css 生成器。
-
-比如：Border Image, Border Radius, Box Shadow, Filter Effects, Multi-Column, Outline Border, Overflow(x,y), RGBa, Text Rotate, Text Shadow, Textarea Resize, Transform
-
-* 可以访问这里去使用这些 css 生成器：[CSS Generators](http://www.cssreflex.com/css-generators/)
-
----
-
-### 渐变CSS代码生成器
-
-* [Ultimate CSS Gradient Generator](http://www.colorzilla.com/gradient-editor/)
-
-界面如下图：
-
-![Ultimate CSS Gradient Generator](http://7q5cdt.com1.z0.glb.clouddn.com/blog-color-gradient.png)
-
-目前 css 写渐变还很复杂，但是用了这个工具简直太方便了，直接生成 css 代码，还能兼容 ie。
-
----
-
-### QQ截图取色-16进制
-
-在按下 `Ctrl+Shift+A` 后，再按一下 `Ctrl` 就可以看到截图框下面的颜色代码变成16进制的代码了。
-
-如下图：
-
-普通截图：
-
-![normal](http://7q5cdt.com1.z0.glb.clouddn.com/blog-RBGScreenColor.png)
-
-按住 `Ctrl`：
-
-![press ctrl](http://7q5cdt.com1.z0.glb.clouddn.com/blog-hexSreenColor.png)
-
-可以看到第一幅图中的 51, 51, 51 变成了 #333333。
-
----
-
-### 配色
-
-* [nipponcolors](http://nipponcolors.com/)
+/**
+ * MainReactor模块，包含dispatch
+ */
+public class MainReactor implements Runnable
+{
+    final Selector selector;
     
-    日本的一个配色网站。罗列了很多不饱和经典的颜色，当然，自己选配还是很重要的。
-
-    ![nipponcolors](http://7q5cdt.com1.z0.glb.clouddn.com/blog-chooseColor.png)
-
-* [Adobe Color CC](https://color.adobe.com/zh/explore/most-popular/?time=all)
+    final ServerSocketChannel serverSocketChannel;
     
-    Adobe 出的在线配色工具，里面有些现成的配色方案还是很不错的。
+    /**
+     * 初始化Reactor
+     * 
+     * @throws IOException
+     */
+    public MainReactor()
+        throws IOException
+    {
+        selector = Selector.open();
+        serverSocketChannel = ServerSocketChannel.open();
+        serverSocketChannel.configureBlocking(false);
+        serverSocketChannel.bind(new InetSocketAddress(8091));
+        SelectionKey selectionKey = serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
+        // 将给定的对象附加到此键。之后可通过 attachment 方法获取已附加的对象。这里附加Acceptor用于连接建立
+        selectionKey.attach(new Acceptor(serverSocketChannel, selector));
+    }
+    
+    /**
+     * 循环查看Selector。是否有新的请求或者响应
+     */
+    @Override
+    public void run()
+    {
+        try
+        {
+            while (!Thread.interrupted())
+            {
+                // 请求来了通过Selector来管理
+                selector.select();
+                Set selectorKeys = selector.selectedKeys();
+                Iterator iterator = selectorKeys.iterator();
+                while (iterator.hasNext())
+                {
+                    SelectionKey key = (SelectionKey)iterator.next();
+                    dispatch(key);
+                    iterator.remove();
+                }
+            }
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * 分发每一个有激活的选择键，将之前的对象（如：Acceptor、Handler）取出，并调用其run方法
+     * 
+     * @param key 选择键
+     */
+    void dispatch(SelectionKey key)
+    {
+        Runnable r = (Runnable)key.attachment();
+        if (r != null)
+        {
+            r.run();
+        }
+    }
+    
+    /**
+     * 程序入口
+     * 
+     * @param args
+     * @throws IOException
+     */
+    public static void main(String[] args)
+        throws IOException
+    {
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        executorService.submit(new MainReactor());
+    }
+}
 
-    ![Adobe Color CC](http://7q5cdt.com1.z0.glb.clouddn.com/blog-adobeColorCC.png)
+```
 
-* [paletton](http://paletton.com/)
 
-    提供了各种预览模式，可以在模板网站中预览，在色块中预览。
 
-    ![paletton](http://7q5cdt.com1.z0.glb.clouddn.com/blog-paletton.png)
+#### Acceptor
 
----
+```java
+package com.tr.reactor.mainsub;
 
-### 图标
+import java.io.IOException;
+import java.nio.channels.Selector;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
 
-* [easyicon](http://www.easyicon.net/)
+/**
+ * Acceptor，用于建立连接。建立连接后获取与客户端的SocketChannel，然后创建Handler去处理读写请求
+ */
+public class Acceptor implements Runnable
+{
+    private ServerSocketChannel serverSocketChannel;
+    
+    private Selector selector;
+    
+    // 获取CPU核心数
+    private final int cores = Runtime.getRuntime().availableProcessors();
+    
+    // 创建于核心数相同的subSelector
+    private final Selector[] selectors = new Selector[cores];
+    
+    // 当前可使用的subReactor索引
+    private int selIdx = 0;
+    
+    private SubReactor[] subReactors = new SubReactor[cores]; // subReactor線程
+    
+    private Thread[] threadsSub = new Thread[cores]; // subReactor線程
+    
+    public Acceptor(ServerSocketChannel serverSocketChannel, Selector selector)
+        throws IOException
+    {
+        this.serverSocketChannel = serverSocketChannel;
+        this.selector = selector;
+        
+        // 创建多个SubReactor
+        for (int i = 0; i < cores; i++)
+        {
+            selectors[i] = Selector.open();
+            subReactors[i] = new SubReactor(selectors[i], serverSocketChannel, i);
+            threadsSub[i] = new Thread(subReactors[i]);
+            threadsSub[i].start();
+        }
+    }
+    
+    @Override
+    public void run()
+    {
+        
+        try
+        {
+            System.out.println("accept");
+            // 建立连接后获取与客户端的SocketChannel
+            SocketChannel socketChannel = serverSocketChannel.accept();
+            if (null != socketChannel)
+            {
+                subReactors[selIdx].restart(true);
+                // 建立Handler去专门处理读写请求
+                new Handler(selectors[selIdx], socketChannel);
+                subReactors[selIdx].restart(false);
+                selIdx++;
+                if (selIdx == cores)
+                {
+                    selIdx = 0;
+                }
+            }
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+        }
+        
+    }
+}
 
-    对中文的搜索支持很好。实际上它是先把中文翻译为英文再搜索的。
+```
 
-    ![easyicon](http://7q5cdt.com1.z0.glb.clouddn.com/blog-icon.png)
 
----
 
-## 数据处理
+#### SubReactor
 
-### Json
+> Sub Reactor在实作上有个重点要注意，
+>
+> 当一个监听中而阻塞住的selector由于Acceptor需要注册新的IO事件到该selector上时，
+>
+> Acceptor会调用selector的wakeup()函数唤醒阻塞住的selector，以注册新IO事件后再继续监听。
+>
+> 但Sub Reactor中循环调用selector.select()的线程回圈可能会因为循环太快，导致selector被唤醒后再度**于IO事件成功注册前**被调用selector.select()而阻塞住，
+>
+> 因此我们需要给Sub Reactor线程循环设置一个flag来控制，这里是**restart**
+>
+> 让selector被唤醒后不会马上进入下回合调用selector.select()的Sub Reactor线程循环，
+>
+> 等待我们将新的IO事件注册完之后才能让Sub Reactor线程继续运行。
 
-* [json editor](http://braincast.nl/samples/jsoneditor/)
+```java
+package com.tr.reactor.mainsub;
 
-    将json数据输入进去，会生成一个树形的结构，方便查看每个节点。
+import java.io.IOException;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.nio.channels.ServerSocketChannel;
+import java.util.Iterator;
+import java.util.Set;
 
-    ![jsoneditor](http://7q5cdt.com1.z0.glb.clouddn.com/blog-json.png)
+/**
+ * SubReactor模块，包含dispatch
+ */
+public class SubReactor implements Runnable
+{
+    final ServerSocketChannel serverSocketChannel;
+    
+    final int index;
+    
+    final Selector selector;
+    
+    // 由于当reactor在selector.select()阻塞的时候，channel无法向selector注册，所以要用一个flag来控制，当唤醒用wakeup唤醒selector后，不至于回环太快又进入selector.select()阻塞
+    private boolean restart = false;
+    
+    // 每个subReactor都有MainReactor的serverSocketChannel。属于自己的selector
+    public SubReactor(Selector selector, ServerSocketChannel serverSocketChannel, int index)
+    {
+        this.serverSocketChannel = serverSocketChannel;
+        this.index = index;
+        this.selector = selector;
+    }
+    
+    @Override
+    public void run()
+    {
+        try
+        {
+            while (!Thread.interrupted())
+            {
+                while (!restart)
+                {
+                    // 请求来了通过Selector来管理
+                    selector.select();
+                    Set selectorKeys = selector.selectedKeys();
+                    System.out.println(selectorKeys.size());
+                    Iterator iterator = selectorKeys.iterator();
+                    while (iterator.hasNext())
+                    {
+                        SelectionKey key = (SelectionKey)iterator.next();
+                        dispatch(key);
+                        iterator.remove();
+                    }
+                }
+                
+            }
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * 分发每一个有激活的选择键，将之前的对象（如：Acceptor、Handler）取出，并调用其run方法
+     *
+     * @param key 选择键
+     */
+    void dispatch(SelectionKey key)
+    {
+        Runnable r = (Runnable)key.attachment();
+        if (r != null)
+        {
+            r.run();
+        }
+    }
+    
+    public void restart(boolean b)
+    {
+        restart = b;
+    }
+}
 
----
+```
 
-本文不定期更新。
+
+
+#### Handler
+
+```java
+package com.tr.reactor.mainsub;
+
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.nio.channels.SocketChannel;
+import java.util.Arrays;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+/**
+ * Handler专门处理读写请求
+ */
+public class Handler implements Runnable
+{
+    final SocketChannel socket;
+
+    final SelectionKey selectionKey;
+
+    // 专门处理读字节的缓存池
+    private ByteBuffer input = ByteBuffer.allocate(10);
+
+    // 专门处理写字节的缓存池
+    private ByteBuffer output = ByteBuffer.allocate(10);
+
+    private static final int READING = 0, SENDING = 1;
+
+    int state = READING;
+
+    // 线程池处理process业务
+    private ExecutorService executorService = Executors.newFixedThreadPool(10);
+
+    public Handler(Selector selector, SocketChannel socketChannel)
+            throws IOException
+    {
+
+        socket = socketChannel;
+        socketChannel.configureBlocking(false);
+        // 唤醒selector。
+        selector.wakeup();
+        // 把socketChannel注册到Selector，标记感兴趣为读事件
+        selectionKey = socketChannel.register(selector, SelectionKey.OP_READ);
+        // 将给定的对象附加到此键。之后可通过 attachment 方法获取已附加的对象。这里附加Handler用于处理读写
+        selectionKey.attach(this);
+        // 唤醒selector。
+        selector.wakeup();
+        socketChannel.write(ByteBuffer.wrap("send message to client".getBytes()));
+    }
+
+    /**
+     * 具体的请求处理，可能是读事件、写事件等
+     */
+    @Override
+    public void run()
+    {
+        try
+        {
+            if (state == READING)
+                read();
+            else if (state == SENDING)
+                send();
+        }
+        catch (IOException ex)
+        {
+            ex.printStackTrace();
+        }
+    }
+
+    /**
+     * 处理读事件
+     *
+     * @throws IOException
+     */
+    void read()
+    {
+        try
+        {
+            System.out.println("read");
+            input.clear();
+            socket.read(input);
+            byte[] data = input.array();
+            if (inputIsComplete())
+            {
+                executorService.submit(new Processer(Arrays.copyOf(data, data.length)));
+                // process(Arrays.copyOf(data, data.length));
+            }
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+            closeChannel();
+        }
+
+    }
+
+    /**
+     * 检查input是否已经完成
+     *
+     * @return
+     */
+    private boolean inputIsComplete()
+    {
+        return true;
+    }
+
+    private void process(byte[] data)
+    {
+        String message = new String(data);
+        System.out.println("receive message from client, size:" + data.length + " msg: " + message);
+    }
+
+    /**
+     * 处理写事件
+     *
+     * @throws IOException
+     */
+    void send()
+            throws IOException
+    {
+        System.out.println("write");
+        socket.write(output);
+        if (outputIsComplete())
+            selectionKey.cancel();
+    }
+
+    /**
+     * 检查output是否已经完成
+     *
+     * @return
+     */
+    private boolean outputIsComplete()
+    {
+        return true;
+    }
+
+    class Processer implements Runnable
+    {
+        byte[] data;
+
+        public Processer(byte[] data)
+        {
+            this.data = data;
+        }
+
+        @Override
+        public void run()
+        {
+            process(data);
+            // state = SENDING;
+            // Normally also do first write now
+            // selectionKey.interestOps(SelectionKey.OP_WRITE);
+
+        }
+    }
+
+
+    /**
+     * 关闭Channel。selectionKey取消注册
+     */
+    public void closeChannel()
+    {
+        try
+        {
+            selectionKey.cancel();
+            socket.close();
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+        }
+    }
+
+}
+
+```
+
